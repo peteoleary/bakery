@@ -1,3 +1,5 @@
+
+
 use std::cmp::Ord;
 use std::thread;
 use std::time::Duration;
@@ -13,33 +15,59 @@ fn compare_ordered_pairs<T>(left: &[T], right: &[T]) -> i8  where T: Ord {
     return 0
 }
 
-fn l1(i: usize, choosing: & mut [i32], number: & mut [i32]) {
-    loop {
-        choosing[i] = 1;
-        number[i] = 1 + number[i..N].iter().max().unwrap();
-        choosing[i] = 0;
-        for j in 0..N {
-            while choosing[j as usize] != 0 {
+
+static mut choosing: [i32; N] = [0; N];
+static mut number: [i32; N] = [0; N];
+
+static mut critical_section_counter: [i32; N] = [0; N];
+
+unsafe fn l1(i: usize) {
+    for _ in 0..100 {
+            choosing[i] = 1;
+            number[i] = 1 + number.iter().max().unwrap();
+            println!("processor #{} number is {}", i, number[i]);
+            choosing[i] = 0;
+            for j in 0..N {
+                while choosing[j as usize] != 0 {
+                    println!("processor #{} waiting for choosing #{}", i, j);
+                    thread::sleep(Duration::from_millis(10));
+                }
+                let mut counter = 0;
+                while number[j] != 0 && compare_ordered_pairs(&[number[j], j as i32], &[number[i], i as i32]) < 0  {
+                    println!("processor #{} waiting for number {}", i, counter);
+                    counter += 1;
+                    thread::sleep(Duration::from_millis(10));
+                }
             }
-            while number[j] != 0 && compare_ordered_pairs(&[number[j], j as i32], &[number[i], i as i32]) < 0  {
-            }
-        }
-        println!("processor #{} begin critical section", i);
-        number[i] = 0;
-        // TODO: do some stuff here
-        println!("processor #{} end critical section", i);
+            println!("> processor #{} begin critical section", i);
+            
+            number[i] = 0;
+            
+            // TODO: do something interesting here, for now we will keep track of how many times each thread got the critical section
+            critical_section_counter[i] += 1;
+            
+            println!("> processor #{} end critical section", i);
     }
 }
 
 fn bakery() {
-    let mut choosing: [i32; N] = [0; N];
-    let mut number: [i32; N] = [0; N];
 
-    // TODO: start separate threads for each i
+    let mut children = vec![];
     for i in 0..N {
-        thread::spawn(|| {
-            l1(i, & mut choosing, & mut number);
-        });
+        children.push(thread::spawn(move || unsafe {
+            l1(i);
+        }));
+    }
+
+    for child in children {
+        // Wait for the thread to finish. Returns a result.
+        let _ = child.join();
+    }
+
+    for i in 0..N {
+        unsafe {
+            println!("processor #{} got the critical section {} times", i, critical_section_counter[i]);
+        }
     }
 }
 
