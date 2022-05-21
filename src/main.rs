@@ -29,24 +29,26 @@ unsafe fn l1(i: usize) {
             choosing[i] = 0;
             for j in 0..N {
                 while choosing[j as usize] != 0 {
-                    println!("processor #{} waiting for choosing #{}", i, j);
-                    thread::sleep(Duration::from_millis(10));
+                    // println!("processor #{} waiting for choosing #{}", i, j);
                 }
                 let mut counter = 0;
                 while number[j] != 0 && compare_ordered_pairs(&[number[j], j as i32], &[number[i], i as i32]) < 0  {
-                    println!("processor #{} waiting for number {}", i, counter);
+                    // println!("processor #{} waiting for number {}", i, counter);
                     counter += 1;
-                    thread::sleep(Duration::from_millis(10));
                 }
             }
             println!("> processor #{} begin critical section", i);
             
-            number[i] = 0;
-            
             // TODO: do something interesting here, for now we will keep track of how many times each thread got the critical section
             critical_section_counter[i] += 1;
+
+            // simulate doing something for a while so the other threads have to wait
+            thread::sleep(Duration::from_millis(10));
             
             println!("> processor #{} end critical section", i);
+
+            // NOTE resetting this is what terminates the critical section
+            number[i] = 0;
     }
 }
 
